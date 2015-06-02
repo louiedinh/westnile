@@ -1,0 +1,67 @@
+---
+title: "West Nile Notebook"
+author: "Louie Dinh"
+date: "June 2, 2015"
+output: html_document
+---
+
+# Problem Statement #
+
+We are trying to predict the occurrence of West Nile virus at any trap location in even years. That is the WNV variable.
+
+# Exploratory Data Analysis #
+
+```{r}
+# Load tools
+library(dplyr)
+library(ggplot2)
+```
+
+```{r}
+# Load the data
+train_data <- read.csv("data/train.csv")
+test_data <- read.csv("data/test.csv")
+str(train_data)
+
+# Clean up
+train_data$Date <- as.Date(train_data$Date)
+```
+
+Out of 116293 observations, we have 551 cases of West Nile detected.
+Rows are split up so that each one is unique on trap/species only if a mosquito was present.
+
+*Observation*: WnvPresent much more likely when more mosquitos are caught.
+
+It seems like traps with WnvPresent are different
+WnvPresent:
+  Average NumMosquitos:, 26.35
+!WnvPresent:
+  Average NumMosquitos: 12.10
+```{r}
+ggplot(train_data, aes(WnvPresent, NumMosquitos)) + geom_boxplot()
+train_data %>% group_by(WnvPresent) %>% summarize(avg = mean(NumMosquitos))
+ggplot(train_data, aes(NumMosquitos)) + facet_grid(~ WnvPresent) + geom_bar()
+```
+
+Is there a separation based on the species of mosquitos?
+*Observation*: Some species of mosquitos are *much* more prevalent
+*Observation*: Detection of WN has only occurred in 3 species: pipiens, restuans and restuan/pipiens hybrids
+
+```{r}
+train_data %>% group_by(Species) %>% summarize(entries=n(), wn=sum(WnvPresent == "1"), m_count=sum(NumMosquitos), p_wn=wn/entries)
+```
+
+
+What is the prevalence of WN based on month of the year?
+```{r}
+# Add month as an indicator
+train_data$Month <- factor(months(train_data$Date))
+
+ggplot(train_data, aes(WnvPresent)) + facet_grid(~Month) + geom_bar()
+```
+
+
+```{r, echo=FALSE}
+plot(cars)
+```
+
