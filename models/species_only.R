@@ -43,4 +43,4 @@ full_fit <- glm(WnvPresent ~ Species + Month, train_data, family=binomial())
 predictions <- predict(fit, test_data, type="response")
 
 submission <- cbind(test_data$Id, predictions)
-write.csv(submissionFile,"species_only.csv",row.names=FALSE,quote=FALSE)
+write.csv(submission,"output/submission.csv", row.names=FALSE, quote=FALSE)
