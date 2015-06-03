@@ -32,15 +32,20 @@ train_set <- filter(train_data, Date >= as.Date("2008-1-1"))
 
 # Prediction model based on just species. Return exactly the overall prevalence based on that species.
 
-fit <- glm(WnvPresent ~ Species + Month, train_set, family=binomial())
-predictions <- predict(fit, validation_set, type="response")
+s_fit <- glm(WnvPresent ~ Species, train_set, family=binomial())
+s_predictions <- predict(s_fit, validation_set, type="response")
+auc(validation_set$WnvPresent, s_predictions)
+
+sm_fit <- glm(WnvPresent ~ Species + Month, train_set, family=binomial())
+sm_predictions <- predict(sm_fit, validation_set, type="response")
+auc(validation_set$WnvPresent, sm_predictions)
+
 
 # AUC Diagnostic
-auc(validation_set$WnvPresent, predictions)
 
 # Write out our first submission
 full_fit <- glm(WnvPresent ~ Species + Month, train_data, family=binomial())
-predictions <- predict(fit, test_data, type="response")
-
+predictions <- predict(full_fit, test_data, type="response")
 submission <- cbind(test_data$Id, predictions)
+colnames(submission)<-c("Id","WnvPresent")
 write.csv(submission,"output/submission.csv", row.names=FALSE, quote=FALSE)
