@@ -11,10 +11,13 @@ We are trying to predict the occurrence of West Nile virus at any trap location 
 
 # Exploratory Data Analysis #
 
-```{r}
+```{r, echo=FALSE}
 # Load tools
 library(dplyr)
 library(ggplot2)
+
+source("utils/cleaning.r")
+source("utils/features.r")
 ```
 
 ```{r}
@@ -24,7 +27,8 @@ test_data <- read.csv("data/test.csv")
 str(train_data)
 
 # Clean up
-train_data$Date <- as.Date(train_data$Date)
+train_data_clean <- clean(train_data)
+train_data <- features(train_data)
 ```
 
 Out of 116293 observations, we have 551 cases of West Nile detected.
@@ -55,13 +59,82 @@ train_data %>% group_by(Species) %>% summarize(entries=n(), wn=sum(WnvPresent ==
 What is the prevalence of WN based on month of the year?
 ```{r}
 # Add month as an indicator
-train_data$Month <- factor(months(train_data$Date))
-
 ggplot(train_data, aes(WnvPresent)) + facet_grid(~Month) + geom_bar()
 ```
 
 
-```{r, echo=FALSE}
-plot(cars)
+Has prevalence of WN changed based upon the year?
+What is the prevalence of WN based on month of the year?
+
+*Observation*: It seems like month does have an effect, and so does year. Unfortunately the year data cannot be taken into account because they are related to itself. Perhaps we can take advantage of the month data?
+```{r}
+# Add month as an indicator
+train_data$Month <- factor(months(train_data$Date))
+
+ggplot(train_data, aes(WnvPresent)) + facet_grid(~Month) + geom_bar()
+ggplot(train_data, aes(WnvPresent)) + facet_grid(~Year) + geom_bar()
 ```
 
+Let's plot the mosquito prevalence based on trap #. Traps that catch more mosquitos are obviously
+more likely to have wnv.
+
+How much does # of mosquitos vary day to day on a per-trap basis?
+
+```{r}
+by_trap_date <- train_data %>% group_by(Trap, Date) %>% filter(Year == "2007") %>% summarize(TotalMosquitos=sum(NumMosquitos))
+qplot(single_trap_obs$TotalMosquitos) + scale_x_log10()
+```
+
+*Observation*: It seems like there is large variance by trap. Some traps catch > 1k, while a lot catch 0.
+*Question*: How constant is the ordering of traps? Do traps that catch lots always catch lots?
+*Question*: Do traps vary based on species? Are some traps better at catching some species?
+
+Lets' visualize how a single trap's catch varies over time.
+```{r}
+single_trap_totals <- train_data %>% group_by(Trap) %>% filter(Year == "2007") %>% summarize(TotalMosquitos=sum(NumMosquitos)) %>% ungroup() %>% arrange(desc(TotalMosquitos))
+best_traps <- as.character(head(single_trap_totals)$Trap)
+worst_traps <- as.character(tail(single_trap_totals)$Trap)
+
+
+best <- train_data %>% filter(Trap %in% best_traps) %>% group_by(Date, Trap) %>% summarise(TotalMosquitos=sum(NumMosquitos))
+worst <- train_data %>% filter(Trap %in% worst_traps) %>% group_by(Date, Trap) %>% summarise(TotalMosquitos=sum(NumMosquitos))
+best_and_worst <- train_data %>% filter(Trap %in% c(best_traps, worst_traps)) %>% group_by(Date, Trap) %>% summarise(TotalMosquitos=sum(NumMosquitos))
+
+ggplot(best, aes(Date, TotalMosquitos, colour=Trap)) + geom_point() + scale_y_log10()
+ggplot(worst, aes(Date, TotalMosquitos, colour=Trap)) + geom_point() + scale_y_log10()
+```
+
+*Observation*: There is certainly year-over-year correlation between trap performance
+*Observation*: We selected for the best traps in 2007, but they are only on medium/high in preceding years. Some correlation but not that high. 
+
+Let's take a look at the best 10 traps in each year
+```{r}
+single_trap_totals <- train_data %>% group_by(Trap, Year) %>% summarize(TotalMosquitos=sum(NumMosquitos)) %>% ungroup() %>% group_by(Year) %>% arrange(desc(TotalMosquitos))  %>% summarize(best=paste(head(Trap), collapse=", "), worst=paste(tail(Trap), collapse=", "))
+
+best_traps <- data.frame(sapply(single_trap_totals$best, strsplit, split=", "))
+colnames(best_traps) <- c("2007", "2009", "2011", "2013")
+worst_traps <- data.frame(sapply(single_trap_totals$worst, strsplit, split=", "))
+colnames(worst_traps) <- c("2007", "2009", "2011", "2013")
+```
+
+Try again with tidy. First step is to merge together all rows that are the same. 
+```{r}
+traps <- train_data_clean$traps
+measurements <- train_data_clean$measurements
+# Gather all the same trap/date into one row
+# Add the extra feature total
+# Look for the top 10
+measurements %>% arrange(desc(NumMosquitos)) %>% head(n=100) %>% select(Trap) %>% ggplot(aes(Trap)) + geom_bar()
+measurements %>% arrange(desc(NumMosquitos)) %>% head(n=100) %>% select(Trap) %>% unique %>% nrow
+```
+
+*Observation*: After plotting and counting, we see that out of the 100 measurements with the most mosquitos, 10 traps show up over and over again.
+
+*Observation*: We can't actually glom together the different species because WnvPresent gets lost in the data.
+*Observation*: We can actually leverage the fact that each 50 is a sample on which we test for Wnv. So multiple samples actually allows us to infer the baserate of Wnv in the population!
+
+Let's try to learn the background infection rate per species!
+
+```{r}
+
+```
