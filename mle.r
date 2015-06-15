@@ -22,7 +22,7 @@ run_simulation <- function(n, trap_counts, theta) {
 }
 
 run_simple <- function(theta) {
-  # Looks like it should be ~.002
+  # Looks like it should be ~.006
   species_data <- filter(trai, Species=="CULEX PIPIENS")
   presence <- table(temp$WnvPresent)
   names(presence) <- c("neg", "pos")
@@ -65,17 +65,30 @@ likelihood <- function(data, theta) {
   likelihood
 }
 
-run_likelihood <- function() {
-  species_data <- filter(trai, Species=="CULEX PIPIENS")
-  infection_rates = seq(.005, .007, by=.0001)
-  likelihoods <- sapply(infection_rates, likelihood, data=species_data)
-  data.frame(p=infection_rates, likelihood=likelihoods)
+run_likelihood <- function(species, year) {
+  res = data.frame()
+  
+  for(y in year) {
+    species_data <- filter(trai, Species==species, dYear==y)
+    infection_rates = seq(.0001, .030, by=.001)
+    likelihoods <- sapply(infection_rates, likelihood, data=species_data)
+    row <- arrange(data.frame(species=species, year=y, p=infection_rates, likelihood=likelihoods), desc(likelihood))[1,]
+    res <- rbind(res, row)
+  }
+  
+  res
 }
 
 
 # Wow! They agree!
-print("Using naive simulation with theta=.006")
-run_simple(.006)
+#print("Using naive simulation with theta=.006")
+#run_simple(.0058)
 
 print("Using likelihood")
-print(run_likelihood())
+p <- run_likelihood("CULEX PIPIENS", c(2007, 2009, 2011, 2013))
+pr <- run_likelihood("CULEX PIPIENS/RESTUANS", c(2007, 2009, 2011, 2013))
+r <- run_likelihood("CULEX RESTUANS", c(2007, 2009, 2011, 2013))
+
+infection_rates <- rbind(p, pr, r)
+infection_rates <- select(infection_rates, -likelihood)
+# Results 
